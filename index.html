@@ -182,6 +182,18 @@
   .badge.mismatch { background: var(--red); color: #fff; }
   .badge.pending { background: #ddd; color: #555; }
 
+  .btn-delete-row {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+    border-radius: 5px;
+    padding: 4px 9px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-delete-row:hover { background: var(--red); color: #fff; }
+
   .diff-cell { font-size: 12px; font-weight: 700; }
   .diff-cell.pos { color: var(--green); }
   .diff-cell.neg { color: var(--red); }
@@ -205,6 +217,7 @@
   <div class="header-actions">
     <button class="btn-secondary" id="btnSettings">⚙ Settings</button>
     <button class="btn-yellow" id="btnReset">Reset Counts</button>
+    <button class="btn-secondary" id="btnRestore">↺ Restore Removed Rows</button>
   </div>
 </header>
 
@@ -251,6 +264,11 @@
       <div class="filter-chip" data-filter="pending">Pending</div>
       <div class="filter-chip" data-filter="match">Match</div>
       <div class="filter-chip" data-filter="mismatch">Mismatch</div>
+      <select id="sortSelect" style="width:auto; padding:7px 10px;">
+        <option value="default">Sort: Board order</option>
+        <option value="loc-asc">Sort: LOC (A→Z)</option>
+        <option value="loc-desc">Sort: LOC (Z→A)</option>
+      </select>
       <button class="btn-secondary" id="btnRefresh">↻ Refresh from Monday</button>
     </div>
 
@@ -268,6 +286,7 @@
             <th>Counted</th>
             <th>Diff</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="itemsBody"></tbody>
@@ -294,12 +313,15 @@
   const LS_QTYCOL = "pac_stocktake_qtycol";
   const LS_LOCCOL = "pac_stocktake_loccol";
   const LS_COUNTS = "pac_stocktake_counts";
+  const LS_REMOVED = "pac_stocktake_removed";
 
   let columnsMap = {}; // id -> {title, type}
   let locColumnId = null;
   let qtyColumnId = null;
   let items = []; // {id, name, sender, receiver, pcs, loc, expected, counted}
   let currentFilter = "all";
+  let currentSort = "default";
+  let removedIds = new Set(JSON.parse(localStorage.getItem(LS_REMOVED) || "[]"));
 
   const $ = (id) => document.getElementById(id);
 
@@ -474,7 +496,9 @@
 
       const savedCounts = JSON.parse(localStorage.getItem(LS_COUNTS) || "{}");
 
-      items = allItems.map(it => {
+      items = allItems
+        .filter(it => !removedIds.has(it.id))
+        .map(it => {
         const colMap = {};
         it.column_values.forEach(cv => colMap[cv.id] = cv.text);
         return {
@@ -515,6 +539,12 @@
       if (search && !hay.includes(search)) return false;
       return true;
     });
+
+    if (currentSort === "loc-asc") {
+      filtered.sort((a, b) => (a.loc || "").localeCompare(b.loc || "", undefined, { numeric: true, sensitivity: "base" }));
+    } else if (currentSort === "loc-desc") {
+      filtered.sort((a, b) => (b.loc || "").localeCompare(a.loc || "", undefined, { numeric: true, sensitivity: "base" }));
+    }
 
     filtered.forEach(it => {
       const status = getStatus(it);
@@ -562,6 +592,7 @@
         <td><input type="text" inputmode="decimal" class="count-input ${status === 'match' ? 'match' : status === 'mismatch' ? 'mismatch' : ''}" data-id="${it.id}" value="${escapeHtml(it.counted)}" placeholder="–"></td>
         <td>${diffHtml}</td>
         <td>${badgeHtml}</td>
+        <td><button class="btn-delete-row" data-delete-id="${it.id}" title="Remove this row">✕</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -609,6 +640,26 @@
     localStorage.setItem(LS_COUNTS, JSON.stringify(counts));
   }
 
+  // ---------- Delete row ----------
+  $("itemsBody").addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-delete-row");
+    if (!btn) return;
+    const id = btn.dataset.deleteId;
+    const it = items.find(i => i.id === id);
+    if (!it) return;
+    if (!confirm(`Remove "${it.name}" (ID ${it.internalId || id}) from this stocktake? This won't affect Monday.com — it just hides it from this list. It'll reappear if you Refresh from Monday.`)) return;
+    removedIds.add(id);
+    localStorage.setItem(LS_REMOVED, JSON.stringify([...removedIds]));
+    items = items.filter(i => i.id !== id);
+    renderTable();
+  });
+
+  // ---------- Sort ----------
+  $("sortSelect").addEventListener("change", (e) => {
+    currentSort = e.target.value;
+    renderTable();
+  });
+
   // ---------- Search & filters ----------
   $("searchBox").addEventListener("input", renderTable);
   document.querySelectorAll(".filter-chip").forEach(chip => {
@@ -634,6 +685,17 @@
     localStorage.removeItem(LS_COUNTS);
     items.forEach(it => it.counted = "");
     renderTable();
+  });
+
+  $("btnRestore").addEventListener("click", () => {
+    if (!removedIds.size) {
+      alert("No removed rows to restore.");
+      return;
+    }
+    if (!confirm(`Restore ${removedIds.size} removed row(s)? This will refresh from Monday.com.`)) return;
+    removedIds.clear();
+    localStorage.removeItem(LS_REMOVED);
+    loadItems();
   });
 
   // ---------- Init: auto-load saved token ----------
