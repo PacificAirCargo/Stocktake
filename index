@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAC Stocktake</title>
+<style>
+  :root {
+    --navy: #1B3172;
+    --sky: #29ABE2;
+    --yellow: #F5C518;
+    --green: #1d9a4c;
+    --red: #d32f2f;
+    --grey: #f4f6f9;
+    --border: #d9dee5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 0;
+    background: var(--grey);
+    color: #1c1c1c;
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); }
+  .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: filter 0.15s;
+  }
+  button:hover { filter: brightness(0.95); }
+  button:active { filter: brightness(0.88); }
+  .btn-primary { background: var(--sky); color: #fff; }
+  .btn-secondary { background: #fff; color: var(--navy); border: 1px solid var(--border); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-yellow { background: var(--yellow); color: var(--navy); }
+
+  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+
+  .panel {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 15px; color: var(--navy); }
+  .panel p.hint { margin: 0 0 14px; font-size: 12.5px; color: #666; }
+
+  label { display: block; font-size: 12.5px; font-weight: 600; color: #444; margin-bottom: 5px; }
+  input[type="text"], input[type="password"], select {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+  }
+  .field { margin-bottom: 12px; }
+  .field-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .field-row .field { flex: 1; min-width: 200px; }
+
+  .status-msg { font-size: 13px; padding: 9px 12px; border-radius: 6px; margin-top: 10px; display: none; }
+  .status-msg.show { display: block; }
+  .status-msg.error { background: #fdecea; color: var(--red); border: 1px solid #f5c6c2; }
+  .status-msg.loading { background: #eaf4fb; color: var(--navy); border: 1px solid #bfe1f5; }
+  .status-msg.success { background: #eaf7ee; color: var(--green); border: 1px solid #bfe5cb; }
+
+  .summary-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .summary-card {
+    flex: 1;
+    min-width: 110px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .summary-card .num { font-size: 22px; font-weight: 700; color: var(--navy); }
+  .summary-card .lbl { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 0.4px; }
+  .summary-card.match .num { color: var(--green); }
+  .summary-card.mismatch .num { color: var(--red); }
+  .summary-card.pending .num { color: #999; }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .toolbar input[type="search"] {
+    flex: 1;
+    min-width: 180px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .filter-chip {
+    padding: 7px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+  }
+  .filter-chip.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+  thead th {
+    background: var(--navy);
+    color: #fff;
+    text-align: left;
+    padding: 10px 10px;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+  }
+  tbody td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+    vertical-align: middle;
+  }
+  tbody tr:hover { background: #f9fbfd; }
+  tbody tr.row-match { background: #f3fbf5; }
+  tbody tr.row-mismatch { background: #fdf3f2; }
+  tbody tr.row-match:hover { background: #e9f7ed; }
+  tbody tr.row-mismatch:hover { background: #fbe9e7; }
+
+  .count-input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 14px;
+    text-align: center;
+  }
+  .count-input.match { border-color: var(--green); background: #eaf7ee; }
+  .count-input.mismatch { border-color: var(--red); background: #fdecea; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .badge.match { background: var(--green); color: #fff; }
+  .badge.mismatch { background: var(--red); color: #fff; }
+  .badge.pending { background: #ddd; color: #555; }
+
+  .diff-cell { font-size: 12px; font-weight: 700; }
+  .diff-cell.pos { color: var(--green); }
+  .diff-cell.neg { color: var(--red); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: #888; }
+
+  footer { text-align: center; padding: 20px; font-size: 11.5px; color: #999; }
+
+  @media (max-width: 700px) {
+    thead th, tbody td { font-size: 12px; padding: 7px 6px; }
+    .count-input { width: 64px; }
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span> PAC Stocktake</h1>
+  <div class="header-actions">
+    <button class="btn-secondary" id="btnSettings">⚙ Settings</button>
+    <button class="btn-yellow" id="btnReset">Reset Counts</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- SETUP PANEL -->
+  <div class="panel" id="setupPanel">
+    <h2>Connect to Monday.com</h2>
+    <p class="hint">Board <strong>6964153366</strong>. Your API token is stored only in this browser (localStorage) — it is never sent anywhere except Monday.com's API.</p>
+
+    <div class="field">
+      <label for="apiToken">Monday.com API Token</label>
+      <input type="password" id="apiToken" placeholder="Paste your API v2 token here">
+    </div>
+    <button class="btn-primary" id="btnConnect">Connect & Load Columns</button>
+    <div class="status-msg" id="connectStatus"></div>
+  </div>
+
+  <!-- COLUMN PICKER PANEL -->
+  <div class="panel hidden" id="columnPanel">
+    <h2>Choose the Expected Quantity Column</h2>
+    <p class="hint">This is the number you'll be checking your physical count against. All number-type columns on the board are listed below.</p>
+    <div class="field">
+      <label for="qtyColumnSelect">Expected Quantity Column</label>
+      <select id="qtyColumnSelect"></select>
+    </div>
+    <button class="btn-primary" id="btnLoadItems">Load Items</button>
+    <div class="status-msg" id="columnStatus"></div>
+  </div>
+
+  <!-- STOCKTAKE PANEL -->
+  <div id="stocktakePanel" class="hidden">
+
+    <div class="summary-bar">
+      <div class="summary-card"><div class="num" id="sumTotal">0</div><div class="lbl">Items</div></div>
+      <div class="summary-card pending"><div class="num" id="sumPending">0</div><div class="lbl">Pending</div></div>
+      <div class="summary-card match"><div class="num" id="sumMatch">0</div><div class="lbl">Match</div></div>
+      <div class="summary-card mismatch"><div class="num" id="sumMismatch">0</div><div class="lbl">Mismatch</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="search" id="searchBox" placeholder="Search sender, receiver, location, ID...">
+      <div class="filter-chip active" data-filter="all">All</div>
+      <div class="filter-chip" data-filter="pending">Pending</div>
+      <div class="filter-chip" data-filter="match">Match</div>
+      <div class="filter-chip" data-filter="mismatch">Mismatch</div>
+      <button class="btn-secondary" id="btnRefresh">↻ Refresh from Monday</button>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Item</th>
+            <th>Sender</th>
+            <th>Receiver</th>
+            <th>PCS</th>
+            <th>LOC</th>
+            <th id="expectedHeader">Expected</th>
+            <th>Counted</th>
+            <th>Diff</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state hidden" id="emptyState">No items match your search/filter.</div>
+  </div>
+
+  <div class="status-msg" id="globalStatus"></div>
+
+</main>
+
+<footer>Pacific Air Cargo · Stocktake Tool · Board 6964153366</footer>
+
+<script>
+(function() {
+  const BOARD_ID = "6964153366";
+  const ID_COL = "item_id__1";
+  const SENDER_COL = "text7__1";
+  const RECEIVER_COL = "text73__1";
+  const PCS_COL = "numbers__1";
+
+  const LS_TOKEN = "pac_stocktake_token";
+  const LS_QTYCOL = "pac_stocktake_qtycol";
+  const LS_LOCCOL = "pac_stocktake_loccol";
+  const LS_COUNTS = "pac_stocktake_counts";
+
+  let columnsMap = {}; // id -> {title, type}
+  let locColumnId = null;
+  let qtyColumnId = null;
+  let items = []; // {id, name, sender, receiver, pcs, loc, expected, counted}
+  let currentFilter = "all";
+
+  const $ = (id) => document.getElementById(id);
+
+  function showStatus(el, msg, type) {
+    el.textContent = msg;
+    el.className = "status-msg show " + type;
+  }
+  function hideStatus(el) {
+    el.className = "status-msg";
+  }
+
+  async function mondayQuery(query, variables) {
+    const token = $("apiToken").value.trim() || localStorage.getItem(LS_TOKEN);
+    if (!token) throw new Error("No API token provided.");
+    const res = await fetch("https://api.monday.com/v2", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": token
+      },
+      body: JSON.stringify({ query, variables })
+    });
+    const data = await res.json();
+    if (data.errors) {
+      throw new Error(data.errors.map(e => e.message).join("; "));
+    }
+    return data.data;
+  }
+
+  // ---------- STEP 1: Connect & load columns ----------
+  $("btnConnect").addEventListener("click", async () => {
+    const statusEl = $("connectStatus");
+    const token = $("apiToken").value.trim();
+    if (!token) {
+      showStatus(statusEl, "Please paste your API token first.", "error");
+      return;
+    }
+    localStorage.setItem(LS_TOKEN, token);
+    showStatus(statusEl, "Connecting to Monday.com…", "loading");
+
+    try {
+      const query = `query ($boardId: [ID!]) {
+        boards (ids: $boardId) {
+          name
+          columns { id title type }
+        }
+      }`;
+      const data = await mondayQuery(query, { boardId: [BOARD_ID] });
+      if (!data.boards || !data.boards.length) {
+        throw new Error("Board not found — check the token has access to board " + BOARD_ID);
+      }
+      const board = data.boards[0];
+      columnsMap = {};
+      board.columns.forEach(c => columnsMap[c.id] = c);
+
+      // find LOC column by common naming patterns
+      locColumnId = findLikelyLocColumn(board.columns);
+
+      populateQtySelect(board.columns);
+      showStatus(statusEl, `Connected — "${board.name}" loaded with ${board.columns.length} columns.`, "success");
+      $("columnPanel").classList.remove("hidden");
+    } catch (err) {
+      showStatus(statusEl, "Error: " + err.message, "error");
+    }
+  });
+
+  function findLikelyLocColumn(columns) {
+    const candidates = columns.filter(c => {
+      const t = c.title.toLowerCase();
+      return t === "loc" || t.includes("location") || t === "loc.";
+    });
+    return candidates.length ? candidates[0].id : null;
+  }
+
+  function populateQtySelect(columns) {
+    const sel = $("qtyColumnSelect");
+    sel.innerHTML = "";
+    const numberCols = columns.filter(c => c.type === "numbers" || c.type === "numeric");
+    if (!numberCols.length) {
+      // fallback: show all columns if no number-type found
+      columns.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = `${c.title} (${c.type})`;
+        sel.appendChild(opt);
+      });
+    } else {
+      numberCols.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = `${c.title} (${c.id})`;
+        sel.appendChild(opt);
+      });
+    }
+    // restore previous choice if it still exists
+    const saved = localStorage.getItem(LS_QTYCOL);
+    if (saved && [...sel.options].some(o => o.value === saved)) {
+      sel.value = saved;
+    }
+
+    // also show a LOC override note
+    const colPanel = $("columnPanel");
+    let locNote = document.getElementById("locNote");
+    if (!locNote) {
+      locNote = document.createElement("div");
+      locNote.id = "locNote";
+      locNote.className = "field";
+      colPanel.insertBefore(locNote, $("btnLoadItems"));
+    }
+    if (locColumnId) {
+      locNote.innerHTML = `<label>LOC Column (auto-detected)</label>
+        <select id="locColumnSelect"></select>`;
+    } else {
+      locNote.innerHTML = `<label>LOC Column (not auto-detected — please select)</label>
+        <select id="locColumnSelect"></select>`;
+    }
+    const locSel = document.getElementById("locColumnSelect");
+    columns.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = `${c.title} (${c.id})`;
+      if (c.id === locColumnId) opt.selected = true;
+      locSel.appendChild(opt);
+    });
+    const savedLoc = localStorage.getItem(LS_LOCCOL);
+    if (savedLoc && [...locSel.options].some(o => o.value === savedLoc)) {
+      locSel.value = savedLoc;
+    }
+  }
+
+  // ---------- STEP 2: Load items ----------
+  $("btnLoadItems").addEventListener("click", async () => {
+    qtyColumnId = $("qtyColumnSelect").value;
+    const locSel = document.getElementById("locColumnSelect");
+    locColumnId = locSel ? locSel.value : locColumnId;
+    localStorage.setItem(LS_QTYCOL, qtyColumnId);
+    localStorage.setItem(LS_LOCCOL, locColumnId || "");
+
+    $("expectedHeader").textContent = columnsMap[qtyColumnId] ? columnsMap[qtyColumnId].title : "Expected";
+
+    await loadItems();
+  });
+
+  $("btnRefresh").addEventListener("click", loadItems);
+
+  async function loadItems() {
+    const statusEl = $("columnStatus");
+    showStatus(statusEl, "Loading items from board…", "loading");
+    showStatus($("globalStatus"), "Loading items…", "loading");
+
+    try {
+      let allItems = [];
+      let cursor = null;
+      do {
+        const query = `query ($boardId: [ID!], $cursor: String) {
+          boards (ids: $boardId) {
+            items_page (limit: 100, cursor: $cursor) {
+              cursor
+              items {
+                id
+                name
+                column_values { id text }
+              }
+            }
+          }
+        }`;
+        const data = await mondayQuery(query, { boardId: [BOARD_ID], cursor });
+        const page = data.boards[0].items_page;
+        allItems = allItems.concat(page.items);
+        cursor = page.cursor;
+      } while (cursor);
+
+      const savedCounts = JSON.parse(localStorage.getItem(LS_COUNTS) || "{}");
+
+      items = allItems.map(it => {
+        const colMap = {};
+        it.column_values.forEach(cv => colMap[cv.id] = cv.text);
+        return {
+          id: it.id,
+          name: it.name,
+          internalId: colMap[ID_COL] || "",
+          sender: colMap[SENDER_COL] || "",
+          receiver: colMap[RECEIVER_COL] || "",
+          pcs: colMap[PCS_COL] || "",
+          loc: locColumnId ? (colMap[locColumnId] || "") : "",
+          expected: colMap[qtyColumnId] || "",
+          counted: savedCounts[it.id] !== undefined ? savedCounts[it.id] : ""
+        };
+      });
+
+      hideStatus(statusEl);
+      hideStatus($("globalStatus"));
+      $("columnPanel").classList.add("hidden");
+      $("setupPanel").classList.add("hidden");
+      $("stocktakePanel").classList.remove("hidden");
+      renderTable();
+    } catch (err) {
+      showStatus(statusEl, "Error loading items: " + err.message, "error");
+      showStatus($("globalStatus"), "Error loading items: " + err.message, "error");
+    }
+  }
+
+  // ---------- Rendering ----------
+  function renderTable() {
+    const tbody = $("itemsBody");
+    tbody.innerHTML = "";
+    const search = $("searchBox").value.trim().toLowerCase();
+
+    let matchCount = 0, mismatchCount = 0, pendingCount = 0;
+
+    const filtered = items.filter(it => {
+      const hay = `${it.internalId} ${it.name} ${it.sender} ${it.receiver} ${it.loc}`.toLowerCase();
+      if (search && !hay.includes(search)) return false;
+      return true;
+    });
+
+    filtered.forEach(it => {
+      const status = getStatus(it);
+      if (status === "match") matchCount++;
+      else if (status === "mismatch") mismatchCount++;
+      else pendingCount++;
+    });
+
+    $("sumTotal").textContent = items.length;
+    $("sumPending").textContent = pendingCount;
+    $("sumMatch").textContent = matchCount;
+    $("sumMismatch").textContent = mismatchCount;
+
+    let visibleRows = 0;
+
+    filtered.forEach(it => {
+      const status = getStatus(it);
+      if (currentFilter !== "all" && status !== currentFilter) return;
+      visibleRows++;
+
+      const tr = document.createElement("tr");
+      tr.className = status === "match" ? "row-match" : status === "mismatch" ? "row-mismatch" : "";
+
+      const expectedNum = parseFloat(it.expected);
+      const countedNum = parseFloat(it.counted);
+      let diffHtml = "—";
+      if (!isNaN(expectedNum) && !isNaN(countedNum)) {
+        const diff = countedNum - expectedNum;
+        const cls = diff === 0 ? "" : diff > 0 ? "pos" : "neg";
+        diffHtml = `<span class="diff-cell ${cls}">${diff > 0 ? "+" : ""}${diff}</span>`;
+      }
+
+      let badgeHtml = '<span class="badge pending">Pending</span>';
+      if (status === "match") badgeHtml = '<span class="badge match">Match</span>';
+      else if (status === "mismatch") badgeHtml = '<span class="badge mismatch">Mismatch</span>';
+
+      tr.innerHTML = `
+        <td>${escapeHtml(it.internalId)}</td>
+        <td>${escapeHtml(it.name)}</td>
+        <td>${escapeHtml(it.sender)}</td>
+        <td>${escapeHtml(it.receiver)}</td>
+        <td>${escapeHtml(it.pcs)}</td>
+        <td>${escapeHtml(it.loc)}</td>
+        <td>${escapeHtml(it.expected)}</td>
+        <td><input type="text" inputmode="decimal" class="count-input ${status === 'match' ? 'match' : status === 'mismatch' ? 'mismatch' : ''}" data-id="${it.id}" value="${escapeHtml(it.counted)}" placeholder="–"></td>
+        <td>${diffHtml}</td>
+        <td>${badgeHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    $("emptyState").classList.toggle("hidden", visibleRows > 0);
+  }
+
+  function getStatus(it) {
+    if (it.counted === "" || it.counted === null || it.counted === undefined) return "pending";
+    const expectedNum = parseFloat(it.expected);
+    const countedNum = parseFloat(it.counted);
+    if (isNaN(expectedNum) || isNaN(countedNum)) return "pending";
+    return expectedNum === countedNum ? "match" : "mismatch";
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // ---------- Input handling ----------
+  $("itemsBody").addEventListener("input", (e) => {
+    if (!e.target.classList.contains("count-input")) return;
+    const id = e.target.dataset.id;
+    const it = items.find(i => i.id === id);
+    if (!it) return;
+    it.counted = e.target.value;
+    persistCounts();
+    renderTable();
+    // refocus the same input after re-render
+    const newInput = document.querySelector(`.count-input[data-id="${id}"]`);
+    if (newInput) {
+      newInput.focus();
+      newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+    }
+  });
+
+  function persistCounts() {
+    const counts = {};
+    items.forEach(it => { if (it.counted !== "") counts[it.id] = it.counted; });
+    localStorage.setItem(LS_COUNTS, JSON.stringify(counts));
+  }
+
+  // ---------- Search & filters ----------
+  $("searchBox").addEventListener("input", renderTable);
+  document.querySelectorAll(".filter-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      currentFilter = chip.dataset.filter;
+      renderTable();
+    });
+  });
+
+  // ---------- Settings / Reset ----------
+  $("btnSettings").addEventListener("click", () => {
+    $("setupPanel").classList.remove("hidden");
+    $("columnPanel").classList.remove("hidden");
+    $("stocktakePanel").classList.add("hidden");
+    const saved = localStorage.getItem(LS_TOKEN);
+    if (saved) $("apiToken").value = saved;
+  });
+
+  $("btnReset").addEventListener("click", () => {
+    if (!confirm("Clear all entered counts for this stocktake? This cannot be undone.")) return;
+    localStorage.removeItem(LS_COUNTS);
+    items.forEach(it => it.counted = "");
+    renderTable();
+  });
+
+  // ---------- Init: auto-load saved token ----------
+  window.addEventListener("DOMContentLoaded", () => {
+    const savedToken = localStorage.getItem(LS_TOKEN);
+    if (savedToken) {
+      $("apiToken").value = savedToken;
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
