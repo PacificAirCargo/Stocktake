@@ -147,7 +147,14 @@
   }
   .filter-chip.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+  .table-scroll {
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: calc(100vh - 280px);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
   thead th {
     background: var(--navy);
     color: #fff;
@@ -157,7 +164,7 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
     position: sticky;
-    top: var(--header-height, 60px);
+    top: 0;
     z-index: 10;
   }
   tbody td {
@@ -278,7 +285,7 @@
       <button class="btn-secondary" id="btnRefresh">↻ Refresh from Monday</button>
     </div>
 
-    <div style="overflow-x:auto;">
+    <div class="table-scroll">
       <table>
         <thead>
           <tr>
@@ -526,7 +533,6 @@
       $("setupPanel").classList.add("hidden");
       $("stocktakePanel").classList.remove("hidden");
       renderTable();
-      updateHeaderHeight();
     } catch (err) {
       showStatus(statusEl, "Error loading items: " + err.message, "error");
       showStatus($("globalStatus"), "Error loading items: " + err.message, "error");
@@ -705,28 +711,12 @@
     loadItems();
   });
 
-  // ---------- Keep sticky table header below the (variable-height) top bar ----------
-  function updateHeaderHeight() {
-    const header = document.querySelector("header");
-    if (header) {
-      document.documentElement.style.setProperty("--header-height", header.offsetHeight + "px");
-    }
-  }
-  window.addEventListener("resize", updateHeaderHeight);
-
   // ---------- Init: auto-load saved token ----------
   window.addEventListener("DOMContentLoaded", () => {
     const savedToken = localStorage.getItem(LS_TOKEN);
     if (savedToken) {
       $("apiToken").value = savedToken;
     }
-    updateHeaderHeight();
-  });
-  // Re-measure whenever the header's content changes (e.g. settings panel toggling)
-  const headerObserver = new MutationObserver(updateHeaderHeight);
-  window.addEventListener("DOMContentLoaded", () => {
-    const header = document.querySelector("header");
-    if (header) headerObserver.observe(header, { childList: true, subtree: true, attributes: true });
   });
 })();
 </script>
