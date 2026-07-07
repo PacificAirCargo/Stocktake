@@ -9,7 +9,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Stocktake">
 <meta name="theme-color" content="#1B3172">
-<link rel="manifest" href="manifest_stocktake.json">
 <style>
   :root {
     --navy: #1B3172;
@@ -305,12 +304,9 @@
   <!-- SETUP PANEL -->
   <div class="panel" id="setupPanel">
     <h2>Connect to Monday.com</h2>
-    <p class="hint">Board <strong>6964153366</strong>. Your API token is stored only in this browser (localStorage) — it is never sent anywhere except Monday.com's API.</p>
+    <p class="hint">Connecting to Monday.com board <strong>6964153366</strong>.</p>
 
-    <div class="field">
-      <label for="apiToken">Monday.com API Token</label>
-      <input type="password" id="apiToken" placeholder="Paste your API v2 token here">
-    </div>
+    <input type="hidden" id="apiToken">
     <button class="btn-primary" id="btnConnect">Connect & Load Columns</button>
     <div class="status-msg" id="connectStatus"></div>
   </div>
@@ -383,6 +379,7 @@
 <script>
 (function() {
   const BOARD_ID = "6964153366";
+  const API_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjY1NTA2MjcxMCwiYWFpIjoxMSwidWlkIjo0Mjk5NTY4OSwiaWFkIjoiMjAyNi0wNS0wN1QwMzozMDo0Ny4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTY2NzY4OTQsInJnbiI6InVzZTEifQ.Aju0mNGNOKtHfSNkYp_uL4_zVuHMXVIZ6JHdWClEwPQ";
   const ID_COL = "item_id__1";
   const SENDER_COL = "text7__1";
   const RECEIVER_COL = "text73__1";
@@ -413,8 +410,7 @@
   }
 
   async function mondayQuery(query, variables) {
-    const token = $("apiToken").value.trim() || localStorage.getItem(LS_TOKEN);
-    if (!token) throw new Error("No API token provided.");
+    const token = API_TOKEN;
     const res = await fetch("https://api.monday.com/v2", {
       method: "POST",
       headers: {
@@ -433,12 +429,6 @@
   // ---------- STEP 1: Connect & load columns ----------
   $("btnConnect").addEventListener("click", async () => {
     const statusEl = $("connectStatus");
-    const token = $("apiToken").value.trim();
-    if (!token) {
-      showStatus(statusEl, "Please paste your API token first.", "error");
-      return;
-    }
-    localStorage.setItem(LS_TOKEN, token);
     showStatus(statusEl, "Connecting to Monday.com…", "loading");
 
     try {
@@ -890,8 +880,7 @@
     $("setupPanel").classList.remove("hidden");
     $("columnPanel").classList.remove("hidden");
     $("stocktakePanel").classList.add("hidden");
-    const saved = localStorage.getItem(LS_TOKEN);
-    if (saved) $("apiToken").value = saved;
+
   });
 
   $("btnReset").addEventListener("click", () => {
@@ -912,12 +901,9 @@
     loadItems();
   });
 
-  // ---------- Init: auto-load saved token ----------
+  // ---------- Init: auto-connect on load ----------
   window.addEventListener("DOMContentLoaded", () => {
-    const savedToken = localStorage.getItem(LS_TOKEN);
-    if (savedToken) {
-      $("apiToken").value = savedToken;
-    }
+    $("btnConnect").click();
   });
 })();
 </script>
